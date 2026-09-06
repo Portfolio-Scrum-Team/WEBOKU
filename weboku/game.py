@@ -819,64 +819,95 @@ class Game:
         new_columns: list[int],
     ) -> bool:
         """
-        Process deterministic climber movement.
+        Process deterministic automatic climber movement.
 
-        Ring completion uses the active column.
+        Movement rules:
 
-        Column completion uses the current ring.
-
-        Window completion does not directly move the climber.
+        1. A newly completed Column becomes the active column.
+        2. A Column completed before any Ring does not move the climber.
+        3. A newly completed Ring moves the climber to:
+               (new_ring, active_column)
+           when an active column exists.
+        4. A newly completed Column moves the climber to:
+               (current_ring, new_column)
+           when a current ring exists.
+        5. Window completion never directly moves the climber.
+        6. Movement is automatic and deterministic.
+        7. Completed objectives cannot be farmed, so movement cannot
+           be repeatedly triggered by the same objective.
         """
 
         moved = False
 
-        # Newest completed column becomes active.
+        # --------------------------------------------------------------
+        # 1. Update the active column.
+        # --------------------------------------------------------------
+        #
+        # The newest genuinely completed column becomes the active
+        # column. Columns are supplied by the objective-detection stage.
+        #
         if new_columns:
             self.state.active_column = new_columns[-1]
 
-        # Ring movement.
-        if new_rings and self.state.active_column is not None:
+        # --------------------------------------------------------------
+        # 2. Ring movement.
+        # --------------------------------------------------------------
+        #
+        # A completed Ring uses the current active Column.
+        #
+        if new_rings:
             new_ring = new_rings[-1]
+            active_column = self.state.active_column
 
-            self.state.current_position = (
-                new_ring,
-                self.state.active_column,
-            )
+            # A Ring cannot place the climber on a playable position
+            # until a completed Column exists.
+            if active_column is not None:
+                self.state.current_position = (
+                    new_ring,
+                    active_column,
+                )
 
-            moved = True
+                moved = True
 
-            self._update_climber_position(
-                new_ring,
-                self.state.active_column,
-            )
+                self._update_climber_position(
+                    new_ring,
+                    active_column,
+                )
 
-            self._add_event(
-                f"Climber moved to R{new_ring}C{self.state.active_column}."
-            )
+                self._add_event(
+                    f"Climber moved to R{new_ring}C{active_column}."
+                )
 
-        # Column movement after a current ring exists.
-        elif new_columns and self._current_ring() is not None:
+        # --------------------------------------------------------------
+        # 3. Column movement.
+        # --------------------------------------------------------------
+        #
+        # If there was no Ring movement during this move, but a new
+        # Column completed and a current Ring already exists, move
+        # horizontally to the new Column.
+        #
+        elif new_columns:
             current_ring = self._current_ring()
             new_column = new_columns[-1]
 
-            self.state.current_position = (
-                current_ring,
-                new_column,
-            )
+            if current_ring is not None:
+                self.state.current_position = (
+                    current_ring,
+                    new_column,
+                )
 
-            moved = True
+                moved = True
 
-            self._update_climber_position(
-                current_ring,
-                new_column,
-            )
+                self._update_climber_position(
+                    current_ring,
+                    new_column,
+                )
 
-            self._add_event(
-                f"Climber moved to R{current_ring}C{new_column}."
-            )
+                self._add_event(
+                    f"Climber moved to R{current_ring}C{new_column}."
+                )
 
         return moved
-
     def _current_ring(self) -> Optional[int]:
         """Return the current ring from the climber position."""
 
@@ -895,33 +926,41 @@ class Game:
         ring: int,
         column: int,
     ) -> None:
-        """Update the Climber module when it provides a compatible method."""
+        """
+        Update the external Climber module when it is available.
 
-        if self.climber is None:
+        Game state remains the authoritative position. The Climber
+        module is only notified about the new position.
+        """
+
+        climber = getattr(self, "climber", None)
+
+        if climber is None:
             return
 
         for method_name in (
             "move_to",
             "set_position",
-            "move_to_position",
+            "update_position",
+            "move",
         ):
-            method = getattr(
-                self.climber,
-                method_name,
-                None,
-            )
+            method = getattr(climber, method_name, None)
 
-            if callable(method):
+            if not callable(method):
+                continue
+
+            try:
+                method(ring, column)
+                return
+            except TypeError:
                 try:
-                    method(ring, column)
+                    method(
+                        ring - 1,
+                        column - 1,
+                    )
                     return
                 except TypeError:
-                    try:
-                        method((ring, column))
-                        return
-                    except TypeError:
-                        continue
-
+                    continue
     # ------------------------------------------------------------------
     # Extra objective / rescue handling
     # ------------------------------------------------------------------
