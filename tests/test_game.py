@@ -394,3 +394,120 @@ def test_game_can_report_game_over_state():
 
     assert game.is_game_over() is True
     assert game.is_victory() is False
+    
+  # ---------------------------------------------------------------------------
+# RIC-07: Win / Lose Integration
+# ---------------------------------------------------------------------------
+
+
+def test_victory_requires_all_27_objectives():
+    game = Game(score_threshold=0)
+
+    game.state.completed_rings = set(range(1, 10))
+    game.state.completed_columns = set(range(1, 10))
+    game.state.completed_regions = set(range(1, 9))
+
+    assert game.completed_objectives == 26
+    assert game._check_victory() is False
+    assert game.game_status != GAME_STATUS_VICTORY
+
+
+def test_victory_requires_climber_to_reach_princess():
+    class MockClimber:
+        has_reached_princess = False
+
+    game = Game(
+        climber=MockClimber(),
+        score_threshold=0,
+    )
+
+    game.state.completed_rings = set(range(1, 10))
+    game.state.completed_columns = set(range(1, 10))
+    game.state.completed_regions = set(range(1, 10))
+
+    assert game.completed_objectives == 27
+    assert game._check_victory() is False
+    assert game.game_status != GAME_STATUS_VICTORY
+
+
+def test_victory_requires_score_threshold():
+    class MockClimber:
+        has_reached_princess = True
+
+    game = Game(
+        climber=MockClimber(),
+        score_threshold=1000,
+    )
+
+    game.state.completed_rings = set(range(1, 10))
+    game.state.completed_columns = set(range(1, 10))
+    game.state.completed_regions = set(range(1, 10))
+    game.state.score = 999
+
+    assert game._check_victory() is False
+    assert game.game_status != GAME_STATUS_VICTORY
+
+
+def test_complete_victory_triggers_marriage():
+    class MockClimber:
+        has_reached_princess = True
+
+    game = Game(
+        climber=MockClimber(),
+        score_threshold=1000,
+    )
+
+    game.state.completed_rings = set(range(1, 10))
+    game.state.completed_columns = set(range(1, 10))
+    game.state.completed_regions = set(range(1, 10))
+    game.state.score = 1000
+
+    assert game._check_victory() is True
+    assert game.game_status == GAME_STATUS_VICTORY
+    assert game.is_victory() is True
+
+    events = game.get_recent_events()
+
+    assert "VICTORY! The young man reached the princess." in events
+    assert "MARRIAGE COMPLETE." in events
+
+
+def test_game_over_prevents_further_play():
+    game = Game()
+
+    game.state.princess_life = 0
+    game._check_princess_life()
+
+    assert game.game_status == GAME_STATUS_GAME_OVER
+    assert game.is_game_over() is True
+    assert game.can_play() is False
+
+
+def test_timeout_with_no_life_ends_game():
+    game = Game()
+
+    game.state.princess_life = 1
+    game.state.rescue_credits = 0
+    game.start()
+
+    result = game.handle_timeout()
+
+    assert result is False
+    assert game.princess_life == 0
+    assert game.game_status == GAME_STATUS_GAME_OVER
+    assert game.is_game_over() is True
+
+
+def test_rescue_credit_prevents_game_over():
+    game = Game()
+
+    game.state.princess_life = 1
+    game.state.rescue_credits = 1
+    game.start()
+
+    result = game.handle_timeout()
+
+    assert result is True
+    assert game.princess_life == 1
+    assert game.rescue_credits == 0
+    assert game.game_status == GAME_STATUS_PLAYING 
