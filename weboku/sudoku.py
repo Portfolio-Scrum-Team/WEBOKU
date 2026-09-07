@@ -74,12 +74,7 @@ class SudokuEngine:
         )
 
     def solve(self) -> bool:
-        """Solve the current board in place with deterministic backtracking.
-
-        Existing values are treated as fixed for the solve attempt. A successful
-        call leaves the solved values on the board. An invalid or unsolvable board
-        returns ``False`` with its original values unchanged.
-        """
+        """Solve the board using backtracking."""
         if not self._has_valid_state():
             return False
         return self._solve()
@@ -103,43 +98,37 @@ class SudokuEngine:
         return True
 
     def _solve(self) -> bool:
-        next_cell = self._select_unsolved_cell()
-        if next_cell is None:
+        empty_cell = self._find_empty_cell()
+        if empty_cell is None:
             return self.is_complete()
 
-        floor, column, candidates = next_cell
-        for value in candidates:
-            if not self.place_value(floor, column, value):
-                continue
-            if self._solve():
-                return True
-            self.board.clear_value(floor, column)
+        floor, column = empty_cell
+        for value in sorted(self.candidates(floor, column)):
+            if self.place_value(floor, column, value):
+                if self._solve():
+                    return True
+                self.board.clear_value(floor, column)
 
         return False
 
-    def _select_unsolved_cell(self) -> tuple[int, int, list[int]] | None:
-        selected: tuple[int, int, list[int]] | None = None
-
+    def _find_empty_cell(self) -> tuple[int, int] | None:
         for floor in range(1, 10):
             for column in range(1, 10):
-                if not self.board.get_cell(floor, column).is_empty:
-                    continue
-
-                candidates = sorted(self.candidates(floor, column))
-                if not candidates:
-                    return floor, column, candidates
-                if selected is None or len(candidates) < len(selected[2]):
-                    selected = floor, column, candidates
-
-        return selected
+                if self.board.get_cell(floor, column).is_empty:
+                    return floor, column
+        return None
 
     def _has_valid_state(self) -> bool:
-        units = (
-            [self.board.get_floor(floor) for floor in range(1, 10)]
-            + [self.board.get_column(column) for column in range(1, 10)]
-            + [self.board.get_region(region) for region in range(1, 10)]
-        )
-        return all(self._has_no_duplicates(unit) for unit in units)
+        for number in range(1, 10):
+            units = [
+                self.board.get_floor(number),
+                self.board.get_column(number),
+                self.board.get_region(number),
+            ]
+            for values in units:
+                if not self._has_no_duplicates(values):
+                    return False
+        return True
 
     @staticmethod
     def _has_no_duplicates(values: list[int | None]) -> bool:
