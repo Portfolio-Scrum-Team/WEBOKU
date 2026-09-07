@@ -17,6 +17,18 @@ SOLVED_BOARD = [
     [3, 4, 5, 2, 8, 6, 1, 7, 9],
 ]
 
+SOLVABLE_PUZZLE = [
+    [5, 3, None, None, 7, None, None, None, None],
+    [6, None, None, 1, 9, 5, None, None, None],
+    [None, 9, 8, None, None, None, None, 6, None],
+    [8, None, None, None, 6, None, None, None, 3],
+    [4, None, None, 8, None, 3, None, None, 1],
+    [7, None, None, None, 2, None, None, None, 6],
+    [None, 6, None, None, None, None, 2, 8, None],
+    [None, None, None, 4, 1, 9, None, None, 5],
+    [None, None, None, None, 8, None, None, 7, 9],
+]
+
 
 def test_board_has_nine_floors_and_eighty_one_cells() -> None:
     board = Board()
@@ -155,6 +167,44 @@ def test_complete_and_incomplete_sudoku() -> None:
     engine.board.get_cell(9, 9).given = False
     assert engine.board.clear_value(9, 9)
     assert not engine.is_complete()
+
+
+def test_solver_deterministically_solves_a_valid_puzzle() -> None:
+    engine = SudokuEngine(Board(SOLVABLE_PUZZLE))
+
+    assert engine.solve()
+    assert engine.is_complete()
+    assert engine.board.to_values() == SOLVED_BOARD
+
+
+def test_solver_accepts_an_already_solved_board() -> None:
+    engine = SudokuEngine(Board(SOLVED_BOARD))
+
+    assert engine.solve()
+    assert engine.board.to_values() == SOLVED_BOARD
+
+
+def test_solver_rejects_an_unsolvable_puzzle_without_changing_it() -> None:
+    unsolvable = [row.copy() for row in SOLVED_BOARD]
+    unsolvable[0][0] = None
+    unsolvable[1][0] = 5
+    unsolvable[1][5] = None
+    engine = SudokuEngine(Board(unsolvable))
+    original_values = engine.board.to_values()
+
+    assert not engine.solve()
+    assert engine.board.to_values() == original_values
+    assert not engine.is_complete()
+
+
+def test_solver_rejects_a_board_with_conflicting_values() -> None:
+    conflicting = [row.copy() for row in SOLVABLE_PUZZLE]
+    conflicting[0][2] = 5
+    engine = SudokuEngine(Board(conflicting))
+    original_values = engine.board.to_values()
+
+    assert not engine.solve()
+    assert engine.board.to_values() == original_values
 
 
 def test_cell_and_completed_objective_locking() -> None:
