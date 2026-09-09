@@ -34,9 +34,7 @@ class GameLoop:
         self.running = True
 
         self.output_fn("Welcome to Weboku!")
-        self.output_fn(
-            "Solve → Unlock → Climb → Reach → Marry"
-        )
+        self.output_fn("Solve → Unlock → Climb → Reach → Marry")
 
         self.run()
 
@@ -44,12 +42,20 @@ class GameLoop:
         """Run the command loop until the game ends."""
 
         while self.running and self._game_can_continue():
-
             command = self.input_fn("weboku> ")
-
             result = self.handle_command(command)
 
-            if result is not None and result is not True:
+            # help and status already display themselves.
+            # Do not display their returned values a second time.
+            command_name = ""
+            if command:
+                command_name = command.strip().split()[0].lower()
+
+            if (
+                result is not None
+                and result is not True
+                and command_name not in {"help", "status"}
+            ):
                 self._display_result(result)
 
     def handle_command(
@@ -85,7 +91,6 @@ class GameLoop:
         # ------------------------------------------------------------
 
         if command_name == "start":
-
             if hasattr(self.game, "start"):
                 return self.game.start()
 
@@ -110,17 +115,10 @@ class GameLoop:
         # ------------------------------------------------------------
 
         if hasattr(self.game, "cli"):
-            return self.game.cli.handle_command(
-                command
-            )
+            return self.game.cli.handle_command(command)
 
-        if (
-            command_name == "move"
-            and hasattr(self.game, "move")
-        ):
-            return self.game.move(
-                *command.split()[1:]
-            )
+        if command_name == "move" and hasattr(self.game, "move"):
+            return self.game.move(*command.split()[1:])
 
         self.output_fn(
             "Command not handled by the core loop yet. "
@@ -138,20 +136,12 @@ class GameLoop:
         """Return whether the game is still playable."""
 
         if hasattr(self.game, "can_play"):
-            return bool(
-                self.game.can_play()
-            )
+            return bool(self.game.can_play())
 
-        if (
-            hasattr(self.game, "is_victory")
-            and self.game.is_victory()
-        ):
+        if hasattr(self.game, "is_victory") and self.game.is_victory():
             return False
 
-        if (
-            hasattr(self.game, "is_game_over")
-            and self.game.is_game_over()
-        ):
+        if hasattr(self.game, "is_game_over") and self.game.is_game_over():
             return False
 
         return True
@@ -160,25 +150,54 @@ class GameLoop:
         """Display the current game state when supported."""
 
         if hasattr(self.game, "status"):
-
             result = self.game.status()
-
             self.output_fn(result)
-
             return result
 
-        self.output_fn(
-            "Game status is not available yet."
-        )
+        if hasattr(self.game, "get_status"):
+            status = self.game.get_status()
 
-        return None
+            if isinstance(status, dict):
+                lines = [
+                    "WEBOKU STATUS",
+                    "========================================================",
+                    f"Objectives : " f"{status.get('completed_objectives', 0)}/27",
+                    f"Rings      : " f"{status.get('completed_rings', 0)}/9",
+                    f"Columns    : " f"{status.get('completed_columns', 0)}/9",
+                    f"Windows    : " f"{status.get('completed_regions', 0)}/9",
+                    f"Score      : " f"{status.get('score', 0)}",
+                    f"Princess   : " f"{status.get('princess_life', 27)}/27",
+                    f"Rescue     : " f"{status.get('rescue_credits', 0)}",
+                    f"Timeouts   : " f"{status.get('failed_timeouts', 0)}",
+                ]
+
+                position = status.get("current_position")
+
+                if position is not None:
+                    lines.append(f"Position   : {position}")
+
+                game_status = status.get("status")
+
+                if game_status is not None:
+                    lines.append(f"Status     : {game_status}")
+
+                result = "\n".join(lines)
+                self.output_fn(result)
+                return result
+
+            result = str(status)
+            self.output_fn(result)
+            return result
+
+        result = "Game status is not available yet."
+        self.output_fn(result)
+        return result
 
     def _show_help(self) -> str:
-        """Return and display the complete Weboku command help."""
+        """Display the complete Weboku command help."""
 
         if hasattr(self.game, "cli"):
             result = self.game.cli.show_help()
-
         else:
             result = (
                 "\n"
@@ -190,7 +209,6 @@ class GameLoop:
             )
 
         self.output_fn(result)
-
         return result
 
     def _display_result(
@@ -204,48 +222,32 @@ class GameLoop:
             return
 
         if hasattr(result, "message"):
-
-            self.output_fn(
-                result.message
-            )
+            self.output_fn(result.message)
 
             if getattr(
                 result,
                 "symbol",
                 None,
             ):
-                self.output_fn(
-                    f"Position: "
-                    f"R{result.floor}C{result.column}"
-                )
+                self.output_fn(f"Position: " f"R{result.floor}C{result.column}")
 
-                self.output_fn(
-                    f"Symbol: {result.symbol}"
-                )
+                self.output_fn(f"Symbol: {result.symbol}")
 
             if getattr(
                 result,
                 "new_objectives",
                 0,
             ):
-                self.output_fn(
-                    f"New objectives: "
-                    f"{result.new_objectives}"
-                )
+                self.output_fn(f"New objectives: " f"{result.new_objectives}")
 
             if getattr(
                 result,
                 "movement_occurred",
                 False,
             ):
-                self.output_fn(
-                    f"Climber position: "
-                    f"{result.current_position}"
-                )
+                self.output_fn(f"Climber position: " f"{result.current_position}")
 
-            self.output_fn(
-                f"Score: {self.game.score}"
-            )
+            self.output_fn(f"Score: {self.game.score}")
 
             return
 
@@ -253,15 +255,10 @@ class GameLoop:
             result,
             "game_status",
         ):
-            self.output_fn(
-                f"Game status: "
-                f"{result.game_status}"
-            )
+            self.output_fn(f"Game status: " f"{result.game_status}")
             return
 
-        self.output_fn(
-            str(result)
-        )
+        self.output_fn(str(result))
 
 
 def create_game():
@@ -285,9 +282,7 @@ def create_game():
 
     board = Board()
 
-    sudoku_engine = SudokuEngine(
-        board
-    )
+    sudoku_engine = SudokuEngine(board)
 
     climber = Climber()
 
@@ -296,9 +291,7 @@ def create_game():
     # Beginner is the default difficulty.
     difficulty = "beginner"
 
-    timer = GameTimer(
-        DIFFICULTY_SECONDS[difficulty]
-    )
+    timer = GameTimer(DIFFICULTY_SECONDS[difficulty])
 
     player = Player()
 
@@ -339,9 +332,7 @@ def main() -> None:
 
     game = create_game()
 
-    loop = GameLoop(
-        game
-    )
+    loop = GameLoop(game)
 
     loop.start()
 
