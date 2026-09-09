@@ -908,6 +908,19 @@ class Game:
                     f"Climber moved to R{current_ring}C{new_column}."
                 )
 
+        # Once every one of the 27 objectives is genuinely complete,
+        # the automatic climb finishes at the roof.  Keep GameState and
+        # the external Climber module synchronized so the engine reports
+        # the same final position used by the victory check and demo.
+        if self.completed_objectives == 27:
+            if self.state.current_position != (1, 1):
+                self._update_climber_position(1, 1)
+                moved = True
+
+            self._add_event(
+                "Climber reached the roof at R1C1."
+            )
+
         return moved
     def _current_ring(self) -> Optional[int]:
         """Return the current ring from the climber position."""
@@ -928,11 +941,11 @@ class Game:
         column: int,
     ) -> None:
         """
-        Update the external Climber module when it is available.
-
-        Game state remains the authoritative position. The Climber
-        module is only notified about the new position.
+        Update the authoritative game position and the Climber module.
         """
+
+        # GameState is the authoritative position.
+        self.state.current_position = (ring, column)
 
         climber = getattr(self, "climber", None)
 
@@ -952,7 +965,7 @@ class Game:
 
             try:
                 method(ring, column)
-                return
+                break
             except TypeError:
                 try:
                     method(
@@ -974,6 +987,7 @@ class Game:
 
             if callable(reach_princess):
                 reach_princess()
+
     # ------------------------------------------------------------------
     # Extra objective / rescue handling
     # ------------------------------------------------------------------
