@@ -66,7 +66,7 @@ def _validate_position(position):
     raise SaveLoadError("Invalid current position: unsupported type.")
 
 
-class SaveLoad:
+class SaveLoad: 
     def save(self, game, path):
         payload = {
             "version": SAVE_VERSION,
@@ -139,6 +139,14 @@ class SaveLoad:
         if not isinstance(game_data, dict):
             raise SaveLoadError("Game data must be a dictionary.")
 
+        self._validate_game_settings(game_data)
+        self._validate_progress(game_data)
+        self._validate_position_data(game_data)
+        self._validate_board_data(game_data)
+
+        return {"version": SAVE_VERSION, "game": game_data}
+
+    def _validate_game_settings(self, game_data):
         if "difficulty" in game_data:
             difficulty = game_data["difficulty"]
             if not isinstance(difficulty, str) or difficulty not in VALID_DIFFICULTIES:
@@ -156,6 +164,7 @@ class SaveLoad:
             if not 0 <= princess_life <= 27:
                 raise SaveLoadError("Invalid princess life: must be between 0 and 27.")
 
+    def _validate_progress(self, game_data):
         if "score" in game_data:
             score = game_data["score"]
             if isinstance(score, bool) or not isinstance(score, int):
@@ -182,36 +191,42 @@ class SaveLoad:
             if not 1 <= active_column <= 9:
                 raise SaveLoadError("Invalid active column: must be between 1 and 9.")
 
-        if "completed_rings" in game_data:
-            game_data["completed_rings"] = _validate_objective_list(game_data["completed_rings"], "completed_rings")
-        if "completed_columns" in game_data:
-            game_data["completed_columns"] = _validate_objective_list(game_data["completed_columns"], "completed_columns")
-        if "completed_regions" in game_data:
-            game_data["completed_regions"] = _validate_objective_list(game_data["completed_regions"], "completed_regions")
+        objective_lists = {
+            "completed_rings": "completed_rings",
+            "completed_columns": "completed_columns",
+            "completed_regions": "completed_regions",
+        }
+        for field_name, label in objective_lists.items():
+            if field_name in game_data:
+                game_data[field_name] = _validate_objective_list(game_data[field_name], label)
 
+    def _validate_position_data(self, game_data):
         if "current_position" in game_data:
             game_data["current_position"] = _validate_position(game_data["current_position"])
 
-        if "board" in game_data:
-            board = game_data["board"]
-            if isinstance(board, dict):
-                if "values" in board:
-                    values = board["values"]
-                    if not isinstance(values, list) or len(values) != 9:
-                        raise SaveLoadError("Malformed board structure.")
-                    for row in values:
-                        if not isinstance(row, list) or len(row) != 9:
-                            raise SaveLoadError("Malformed board structure.")
-            elif isinstance(board, list):
-                if len(board) != 9:
-                    raise SaveLoadError("Malformed board structure.")
-                for row in board:
-                    if not isinstance(row, list) or len(row) != 9:
-                        raise SaveLoadError("Malformed board structure.")
-            else:
-                raise SaveLoadError("Malformed board structure.")
+    def _validate_board_data(self, game_data):
+        if "board" not in game_data:
+            return
 
-        return {"version": SAVE_VERSION, "game": game_data}
+        board = game_data["board"]
+        if isinstance(board, dict):
+            if "values" not in board:
+                return
+            values = board["values"]
+        elif isinstance(board, list):
+            values = board
+        else:
+            raise SaveLoadError("Malformed board structure.")
+
+        self._validate_board_grid(values)
+
+    def _validate_board_grid(self, values):
+        if not isinstance(values, list) or len(values) != 9:
+            raise SaveLoadError("Malformed board structure.")
+
+        for row in values:
+            if not isinstance(row, list) or len(row) != 9:
+                raise SaveLoadError("Malformed board structure.")
 
 
 def save_game(game, path):
