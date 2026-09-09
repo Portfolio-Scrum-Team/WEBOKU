@@ -623,6 +623,7 @@ class Game:
             "completed_rings": (
                 "get_completed_rings",
                 "completed_rings",
+                "completed_floors",
             ),
             "completed_columns": (
                 "get_completed_columns",
@@ -958,9 +959,21 @@ class Game:
                         ring - 1,
                         column - 1,
                     )
-                    return
+                    break
                 except TypeError:
                     continue
+
+        # Ring 1 is the roof. Once the climber reaches it,
+        # notify the Climber module that the princess has been reached.
+        if ring == 1:
+            reach_princess = getattr(
+                climber,
+                "reach_princess",
+                None,
+            )
+
+            if callable(reach_princess):
+                reach_princess()
     # ------------------------------------------------------------------
     # Extra objective / rescue handling
     # ------------------------------------------------------------------
