@@ -9,6 +9,8 @@ remains the authoritative owner of game rules and state.
 
 from __future__ import annotations
 
+import sys
+
 from typing import Any
 
 
@@ -331,6 +333,11 @@ def create_game():
 def main() -> None:
     """Application entry point."""
 
+    if "--demo" in sys.argv:
+        from weboku.demo import run_demo
+        run_demo()
+        return
+
     game = create_game()
 
     loop = GameLoop(
@@ -342,3 +349,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
