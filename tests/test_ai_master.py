@@ -64,6 +64,12 @@ def test_candidate_suggestions_delegate_to_sudoku_api():
     assert AIMaster().suggest_candidates(game, 5, 4) == [1, 3, 5]
 
 
+def test_candidate_suggestions_support_sudoku_engine_api():
+    game = type("GameWithSudokuEngine", (), {"sudoku_engine": FakeSudoku()})()
+
+    assert AIMaster().suggest_candidates(game, 5, 4) == [1, 3, 5]
+
+
 def test_ai_does_not_mutate_game():
     game = FakeGame()
     before = copy.deepcopy(game.__dict__)

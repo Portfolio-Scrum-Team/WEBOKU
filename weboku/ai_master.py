@@ -51,8 +51,11 @@ class AIMaster:
         if game is None:
             return []
 
-        sudoku = getattr(game, "sudoku", None)
-        if sudoku is not None:
+        for sudoku_attribute in ("sudoku", "sudoku_engine"):
+            sudoku = getattr(game, sudoku_attribute, None)
+            if sudoku is None:
+                continue
+
             for method_name in ("get_candidates", "candidates"):
                 method = getattr(sudoku, method_name, None)
                 if callable(method):
