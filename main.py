@@ -10,7 +10,6 @@ remains the authoritative owner of game rules and state.
 from __future__ import annotations
 
 import sys
-
 from typing import Any
 
 
@@ -23,7 +22,6 @@ class GameLoop:
         input_fn=input,
         output_fn=print,
     ) -> None:
-
         self.game = game
         self.input_fn = input_fn
         self.output_fn = output_fn
@@ -335,6 +333,7 @@ def main() -> None:
 
     if "--demo" in sys.argv:
         from weboku.demo import run_demo
+
         run_demo()
         return
 
@@ -349,4 +348,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
