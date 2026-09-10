@@ -106,7 +106,7 @@ class GameLoop:
         return re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text)
 
     def _update_live_timer_display(self) -> None:
-        """Update only the timer value at its fixed screen position."""
+        """Update only the existing TIME field; never clear or redraw the screen."""
         if self.output_fn is not print:
             return
 
@@ -115,25 +115,30 @@ class GameLoop:
         if row is None or column is None:
             return
 
-        timer_text = self._get_timer_text()
+        timer = getattr(self.game, "timer", None)
+        if timer is None:
+            return
 
-        # Use absolute cursor positioning instead of relative cursor movement.
-        # Relative movement was the source of the stray/floating TIME lines in
-        # terminals where the prompt or dashboard occupied a different number
-        # of physical rows than the logical string lines.
+        remaining = getattr(timer, "remaining", None)
+        if callable(remaining):
+            remaining = remaining()
+        try:
+            seconds = max(0, int(float(remaining)))
+        except (TypeError, ValueError):
+            return
+
+        timer_text = f"{seconds // 60:02d}:{seconds % 60:02d}"
+
+        # Save the input cursor, update ONLY the five-character TIME value,
+        # then return the cursor to exactly where the player was typing.
         self.output_fn(
-            f"\033[s\033[{row};{column}H{timer_text:<8}\033[u",
+            f"\033[s\033[{row};{column}H\033[0m{timer_text} \033[u",
             end="",
             flush=True,
         )
 
     def _read_command_with_live_timer(self) -> str | None:
-        """Read terminal input while keeping a stable, live timer.
-
-        The dashboard is rendered once. While the player is typing, only the
-        timer value is updated in place; the tower and prompt are never
-        repeatedly cleared or redrawn.
-        """
+        """Read input without ever clearing the screen while the user types."""
         if self.input_fn is not input:
             try:
                 return self.input_fn("weboku> ")
@@ -155,18 +160,14 @@ class GameLoop:
         old_settings = termios.tcgetattr(stdin_fd)
         buffer = ""
 
-        def redraw_prompt() -> None:
-            # Return to the prompt line without clearing or repainting the
-            # dashboard. The live timer update restores this same cursor.
-            self.output_fn(
-                f"weboku> {buffer}",
-                end="",
-                flush=True,
-            )
-
         try:
             tty.setcbreak(stdin_fd)
-            redraw_prompt()
+
+            # The board has already been printed by start()/the previous
+            # command. Establish the TIME coordinates once, then leave the
+            # prompt and everything the user types completely untouched.
+            self._set_timer_coordinates()
+            self.output_fn("weboku> ", end="", flush=True)
 
             while self.running and self._game_can_continue():
                 readable, _, _ = select.select([sys.stdin], [], [], 1.0)
@@ -195,7 +196,8 @@ class GameLoop:
                     self.output_fn(char, end="", flush=True)
                     continue
 
-                # One second elapsed. Process timeout first.
+                # One second elapsed. Do not redraw the dashboard and do not
+                # touch the prompt. Only replace the TIME field in place.
                 timeout_handled = self._check_timer_timeout()
 
                 if not self.running or not self._game_can_continue():
@@ -213,13 +215,26 @@ class GameLoop:
                 return None
         finally:
             try:
-                termios.tcsetattr(
-                    stdin_fd,
-                    termios.TCSADRAIN,
-                    old_settings,
-                )
+                termios.tcsetattr(stdin_fd, termios.TCSADRAIN, old_settings)
             except (OSError, ValueError, termios.error):
                 pass
+
+    def _set_timer_coordinates(self) -> None:
+        """Find the TIME field in the currently rendered dashboard."""
+        dashboard = self._last_rendered_dashboard
+        if not dashboard:
+            return
+
+        for index, line in enumerate(dashboard.splitlines()):
+            plain = self._strip_ansi(line)
+            label_index = plain.find("TIME:")
+            if label_index >= 0:
+                self._timer_screen_row = index + 1
+                self._timer_value_column = label_index + len("TIME: ") + 1
+                return
+
+        self._timer_screen_row = None
+        self._timer_value_column = None
 
     def _looks_like_move_command(self, command: str) -> bool:
         """Return True when a command is in Weboku's Sudoku move format."""
@@ -556,19 +571,10 @@ class GameLoop:
         result = renderer.render_game(self.game, notification=notification)
         self._last_rendered_dashboard = result
 
-        # _show_game_board always clears to the terminal home position before
-        # rendering, so record the exact physical screen row/column of TIME.
-        # This lets the live timer update one field only.
-        plain_lines = [self._strip_ansi(line) for line in result.splitlines()]
-        for index, line in enumerate(plain_lines):
-            timer_label_index = line.find("TIME:")
-            if timer_label_index >= 0:
-                self._timer_screen_row = index + 1
-                self._timer_value_column = timer_label_index + len("TIME: ") + 1
-                break
-        else:
-            self._timer_screen_row = None
-            self._timer_value_column = None
+        # The dashboard is printed once. Live timer updates later change only
+        # this field and restore the user's typing cursor.
+        self._last_rendered_dashboard = result
+        self._set_timer_coordinates()
 
         self.output_fn(result)
 
