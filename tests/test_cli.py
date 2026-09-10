@@ -72,8 +72,16 @@ def test_cli_save_and_load_commands():
 
     game = SaveLoadGame()
     cli = CLI(game=game)
-    assert cli.handle_command("save game.txt") == {"action": "save", "path": "game.txt", "ok": True}
-    assert cli.handle_command("load game.txt") == {"action": "load", "path": "game.txt", "ok": True}
+    assert cli.handle_command("save game.txt") == {
+        "action": "save",
+        "path": "game.txt",
+        "ok": True,
+    }
+    assert cli.handle_command("load game.txt") == {
+        "action": "load",
+        "path": "game.txt",
+        "ok": True,
+    }
 
 
 def test_cli_status_command_works():

@@ -17,10 +17,7 @@ def test_demo_solution_is_valid():
 
     # Every column contains 1-9.
     for column in range(9):
-        assert {
-            DEMO_SOLUTION[row][column]
-            for row in range(9)
-        } == expected
+        assert {DEMO_SOLUTION[row][column] for row in range(9)} == expected
 
     # Every 3x3 region contains 1-9.
     for region_row in range(3):

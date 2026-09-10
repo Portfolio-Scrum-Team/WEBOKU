@@ -54,19 +54,27 @@ def _validate_position(position):
         raise SaveLoadError(f"Invalid current position: {position!r}")
     if isinstance(position, (tuple, list)):
         if len(position) != 2:
-            raise SaveLoadError("Invalid current position: must be a two-item list/tuple.")
+            raise SaveLoadError(
+                "Invalid current position: must be a two-item list/tuple."
+            )
         row, column = position
         if isinstance(row, bool) or isinstance(column, bool):
-            raise SaveLoadError("Invalid current position: booleans are not valid positions.")
+            raise SaveLoadError(
+                "Invalid current position: booleans are not valid positions."
+            )
         if not isinstance(row, int) or not isinstance(column, int):
-            raise SaveLoadError("Invalid current position: row and column must be integers.")
+            raise SaveLoadError(
+                "Invalid current position: row and column must be integers."
+            )
         if not (1 <= row <= 9 and 1 <= column <= 9):
-            raise SaveLoadError("Invalid current position: must be within R1C1 to R9C9.")
+            raise SaveLoadError(
+                "Invalid current position: must be within R1C1 to R9C9."
+            )
         return [row, column]
     raise SaveLoadError("Invalid current position: unsupported type.")
 
 
-class SaveLoad: 
+class SaveLoad:
     def save(self, game, path):
         payload = {
             "version": SAVE_VERSION,
@@ -75,7 +83,10 @@ class SaveLoad:
 
         file_path = Path(path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_text(json.dumps(_json_safe(payload), ensure_ascii=False, indent=2), encoding="utf-8")
+        file_path.write_text(
+            json.dumps(_json_safe(payload), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
         return {"success": True, "path": str(file_path)}
 
     def load(self, path):
@@ -179,7 +190,9 @@ class SaveLoad:
 
         if "failed_timeouts" in game_data:
             failed_timeouts = game_data["failed_timeouts"]
-            if isinstance(failed_timeouts, bool) or not isinstance(failed_timeouts, int):
+            if isinstance(failed_timeouts, bool) or not isinstance(
+                failed_timeouts, int
+            ):
                 raise SaveLoadError("Invalid failed timeouts: must be an integer.")
             if failed_timeouts < 0:
                 raise SaveLoadError("Invalid failed timeouts: cannot be negative.")
@@ -187,7 +200,9 @@ class SaveLoad:
         if "active_column" in game_data and game_data["active_column"] is not None:
             active_column = game_data["active_column"]
             if isinstance(active_column, bool) or not isinstance(active_column, int):
-                raise SaveLoadError("Invalid active column: must be an integer or null.")
+                raise SaveLoadError(
+                    "Invalid active column: must be an integer or null."
+                )
             if not 1 <= active_column <= 9:
                 raise SaveLoadError("Invalid active column: must be between 1 and 9.")
 
@@ -198,11 +213,15 @@ class SaveLoad:
         }
         for field_name, label in objective_lists.items():
             if field_name in game_data:
-                game_data[field_name] = _validate_objective_list(game_data[field_name], label)
+                game_data[field_name] = _validate_objective_list(
+                    game_data[field_name], label
+                )
 
     def _validate_position_data(self, game_data):
         if "current_position" in game_data:
-            game_data["current_position"] = _validate_position(game_data["current_position"])
+            game_data["current_position"] = _validate_position(
+                game_data["current_position"]
+            )
 
     def _validate_board_data(self, game_data):
         if "board" not in game_data:

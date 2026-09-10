@@ -60,9 +60,7 @@ class OpenRouterEngine:
                 response parsing fails.
         """
         if not self.api_key:
-            raise OpenRouterError(
-                "OPENROUTER_API_KEY is not configured."
-            )
+            raise OpenRouterError("OPENROUTER_API_KEY is not configured.")
 
         if not prompt or not prompt.strip():
             raise ValueError("Prompt cannot be empty.")
@@ -113,9 +111,7 @@ class OpenRouterEngine:
 
         except urllib.error.HTTPError as exc:
             details = self._read_http_error(exc)
-            raise OpenRouterError(
-                f"OpenRouter HTTP {exc.code}: {details}"
-            ) from exc
+            raise OpenRouterError(f"OpenRouter HTTP {exc.code}: {details}") from exc
 
         except urllib.error.URLError as exc:
             raise OpenRouterError(
@@ -123,14 +119,10 @@ class OpenRouterEngine:
             ) from exc
 
         except TimeoutError as exc:
-            raise OpenRouterError(
-                "OpenRouter request timed out."
-            ) from exc
+            raise OpenRouterError("OpenRouter request timed out.") from exc
 
         except OSError as exc:
-            raise OpenRouterError(
-                f"OpenRouter network error: {exc}"
-            ) from exc
+            raise OpenRouterError(f"OpenRouter network error: {exc}") from exc
 
         return self._extract_text(raw_response)
 
@@ -171,9 +163,7 @@ class OpenRouterEngine:
         try:
             data: Any = json.loads(raw_response)
         except json.JSONDecodeError as exc:
-            raise OpenRouterError(
-                "OpenRouter returned invalid JSON."
-            ) from exc
+            raise OpenRouterError("OpenRouter returned invalid JSON.") from exc
 
         try:
             choices = data["choices"]
@@ -185,16 +175,12 @@ class OpenRouterEngine:
             ) from exc
 
         if not isinstance(content, str):
-            raise OpenRouterError(
-                "OpenRouter returned non-text assistant content."
-            )
+            raise OpenRouterError("OpenRouter returned non-text assistant content.")
 
         content = content.strip()
 
         if not content:
-            raise OpenRouterError(
-                "OpenRouter returned an empty assistant response."
-            )
+            raise OpenRouterError("OpenRouter returned an empty assistant response.")
 
         return content
 

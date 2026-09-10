@@ -80,7 +80,9 @@ def test_ai_does_not_mutate_game():
 
 
 def test_invalid_move_result_can_be_explained():
-    result = type("Result", (), {"success": False, "floor": 5, "column": 5, "value": 6})()
+    result = type(
+        "Result", (), {"success": False, "floor": 5, "column": 5, "value": 6}
+    )()
     text = AIMaster().explain_move_result(result)
 
     assert "Move rejected." in text

@@ -103,7 +103,10 @@ def test_missing_version_rejected(tmp_path):
 
 def test_unsupported_version_rejected(tmp_path):
     path = tmp_path / "save.json"
-    data = {"version": 2, "game": {"score": 10, "difficulty": "beginner", "princess_life": 27}}
+    data = {
+        "version": 2,
+        "game": {"score": 10, "difficulty": "beginner", "princess_life": 27},
+    }
     path.write_text(json.dumps(data), encoding="utf-8")
 
     with pytest.raises((ValueError, SaveLoadError)):
@@ -112,7 +115,10 @@ def test_unsupported_version_rejected(tmp_path):
 
 def test_invalid_princess_life_rejected(tmp_path):
     path = tmp_path / "save.json"
-    data = {"version": 1, "game": {"score": 10, "difficulty": "beginner", "princess_life": 28}}
+    data = {
+        "version": 1,
+        "game": {"score": 10, "difficulty": "beginner", "princess_life": 28},
+    }
     path.write_text(json.dumps(data), encoding="utf-8")
 
     with pytest.raises((ValueError, SaveLoadError)):
@@ -121,7 +127,15 @@ def test_invalid_princess_life_rejected(tmp_path):
 
 def test_invalid_objective_counts_rejected(tmp_path):
     path = tmp_path / "save.json"
-    data = {"version": 1, "game": {"score": 10, "difficulty": "beginner", "princess_life": 27, "completed_rings": [10]}}
+    data = {
+        "version": 1,
+        "game": {
+            "score": 10,
+            "difficulty": "beginner",
+            "princess_life": 27,
+            "completed_rings": [10],
+        },
+    }
     path.write_text(json.dumps(data), encoding="utf-8")
 
     with pytest.raises((ValueError, SaveLoadError)):
@@ -130,7 +144,15 @@ def test_invalid_objective_counts_rejected(tmp_path):
 
 def test_duplicate_objective_values_rejected(tmp_path):
     path = tmp_path / "save.json"
-    data = {"version": 1, "game": {"score": 10, "difficulty": "beginner", "princess_life": 27, "completed_rings": [1, 1, 2]}}
+    data = {
+        "version": 1,
+        "game": {
+            "score": 10,
+            "difficulty": "beginner",
+            "princess_life": 27,
+            "completed_rings": [1, 1, 2],
+        },
+    }
     path.write_text(json.dumps(data), encoding="utf-8")
 
     with pytest.raises((ValueError, SaveLoadError)):
@@ -139,7 +161,10 @@ def test_duplicate_objective_values_rejected(tmp_path):
 
 def test_invalid_difficulty_rejected(tmp_path):
     path = tmp_path / "save.json"
-    data = {"version": 1, "game": {"score": 10, "difficulty": "godmode", "princess_life": 27}}
+    data = {
+        "version": 1,
+        "game": {"score": 10, "difficulty": "godmode", "princess_life": 27},
+    }
     path.write_text(json.dumps(data), encoding="utf-8")
 
     with pytest.raises((ValueError, SaveLoadError)):
@@ -148,7 +173,15 @@ def test_invalid_difficulty_rejected(tmp_path):
 
 def test_invalid_position_rejected(tmp_path):
     path = tmp_path / "save.json"
-    data = {"version": 1, "game": {"score": 10, "difficulty": "beginner", "princess_life": 27, "current_position": [9, 10]}}
+    data = {
+        "version": 1,
+        "game": {
+            "score": 10,
+            "difficulty": "beginner",
+            "princess_life": 27,
+            "current_position": [9, 10],
+        },
+    }
     path.write_text(json.dumps(data), encoding="utf-8")
 
     with pytest.raises((ValueError, SaveLoadError)):

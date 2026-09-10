@@ -394,8 +394,9 @@ def test_game_can_report_game_over_state():
 
     assert game.is_game_over() is True
     assert game.is_victory() is False
-    
-  # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
 # RIC-07: Win / Lose Integration
 # ---------------------------------------------------------------------------
 
@@ -510,4 +511,4 @@ def test_rescue_credit_prevents_game_over():
     assert result is True
     assert game.princess_life == 1
     assert game.rescue_credits == 0
-    assert game.game_status == GAME_STATUS_PLAYING 
+    assert game.game_status == GAME_STATUS_PLAYING

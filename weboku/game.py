@@ -12,11 +12,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-
 # ---------------------------------------------------------------------------
 # Game constants
 # ---------------------------------------------------------------------------
-
 MAX_OBJECTIVES = 27
 MAX_PRINCESS_LIFE = 27
 
@@ -25,6 +23,9 @@ GAME_STATUS_PLAYING = "PLAYING"
 GAME_STATUS_VICTORY = "VICTORY"
 GAME_STATUS_GAME_OVER = "GAME_OVER"
 
+OBJECTIVE_COMPLETION_POINTS = 100
+MARRIAGE_OBJECTIVE_TARGET = 14
+MARRIAGE_THRESHOLD_POINTS = MARRIAGE_OBJECTIVE_TARGET * OBJECTIVE_COMPLETION_POINTS
 
 # Weboku numeric value <-> terminal symbol mapping.
 SYMBOL_TO_VALUE = {
@@ -82,6 +83,7 @@ class GameState:
 
     board: Any = None
     score: int = 0
+    marriage_objective_points: int = 0
 
     completed_rings: set[int] = field(default_factory=set)
     completed_columns: set[int] = field(default_factory=set)
@@ -168,6 +170,16 @@ class Game:
         return self.state.score
 
     @property
+    def marriage_objective_points(self) -> int:
+        """Return objective-completion points counted toward marriage."""
+        return self.state.marriage_objective_points
+
+    @property
+    def marriage_threshold_achieved(self) -> bool:
+        """Return whether the 1,400-point marriage threshold is achieved."""
+        return self.state.marriage_objective_points >= MARRIAGE_THRESHOLD_POINTS
+
+    @property
     def completed_rings(self) -> set[int]:
         return self.state.completed_rings
 
@@ -241,6 +253,7 @@ class Game:
         """
 
         self.state.score = 0
+        self.state.marriage_objective_points = 0
 
         self.state.completed_rings.clear()
         self.state.completed_columns.clear()
@@ -298,9 +311,11 @@ class Game:
             GAME_STATUS_VICTORY,
             GAME_STATUS_GAME_OVER,
         }:
-            return self._failed_move(
-                "The game has already ended."
-            )
+            return self._failed_move("The game has already ended.")
+
+        if self._timer_is_expired():
+            self.handle_timeout()
+            return self._failed_move("The move was rejected because time expired.")
 
         if not self._valid_coordinate(floor, column):
             return self._failed_move(
@@ -310,9 +325,7 @@ class Game:
         value = self.symbol_to_value(symbol)
 
         if value is None:
-            return self._failed_move(
-                "Invalid symbol. Use one of the Weboku symbols."
-            )
+            return self._failed_move("Invalid symbol. Use one of the Weboku symbols.")
 
         # SudokuEngine owns Sudoku validation.
         validation = self._validate_sudoku_move(
@@ -322,9 +335,7 @@ class Game:
         )
 
         if validation is not True:
-            return self._failed_move(
-                self._validation_message(validation)
-            )
+            return self._failed_move(self._validation_message(validation))
 
         # Apply the valid move through the Board/Sudoku layer.
         applied = self._apply_value(
@@ -334,9 +345,7 @@ class Game:
         )
 
         if not applied:
-            return self._failed_move(
-                "The move could not be applied."
-            )
+            return self._failed_move("The move could not be applied.")
 
         score_before = self.state.score
 
@@ -348,11 +357,7 @@ class Game:
         new_columns = self._detect_new_columns()
         new_regions = self._detect_new_regions()
 
-        new_objective_count = (
-            len(new_rings)
-            + len(new_columns)
-            + len(new_regions)
-        )
+        new_objective_count = len(new_rings) + len(new_columns) + len(new_regions)
 
         # Record and lock newly completed objectives.
         self._record_new_objectives(
@@ -362,21 +367,19 @@ class Game:
         )
 
         # Objective scoring.
-        self._award_objective_score(
-            new_objective_count
-        )
+        self._award_objective_score(new_objective_count)
 
         # Automatic movement.
         movement_occurred = self._process_automatic_movement(
             new_rings,
             new_columns,
+            last_played_floor=floor,
+            last_played_column=column,
         )
 
         # Extra objective handling.
         if new_objective_count > 1:
-            self._process_extra_objectives(
-                new_objective_count
-            )
+            self._process_extra_objectives(new_objective_count)
 
         # Timer success is based on at least one genuinely new objective.
         if new_objective_count > 0:
@@ -572,40 +575,28 @@ class Game:
     def _detect_new_rings(self) -> list[int]:
         """Return newly completed rings."""
 
-        completed = self._get_completed_structures(
-            "completed_rings"
-        )
+        completed = self._get_completed_structures("completed_rings")
 
         return sorted(
-            ring
-            for ring in completed
-            if ring not in self.state.completed_rings
+            ring for ring in completed if ring not in self.state.completed_rings
         )
 
     def _detect_new_columns(self) -> list[int]:
         """Return newly completed columns."""
 
-        completed = self._get_completed_structures(
-            "completed_columns"
-        )
+        completed = self._get_completed_structures("completed_columns")
 
         return sorted(
-            column
-            for column in completed
-            if column not in self.state.completed_columns
+            column for column in completed if column not in self.state.completed_columns
         )
 
     def _detect_new_regions(self) -> list[int]:
         """Return newly completed windows/regions."""
 
-        completed = self._get_completed_structures(
-            "completed_regions"
-        )
+        completed = self._get_completed_structures("completed_regions")
 
         return sorted(
-            region
-            for region in completed
-            if region not in self.state.completed_regions
+            region for region in completed if region not in self.state.completed_regions
         )
 
     def _get_completed_structures(
@@ -682,9 +673,7 @@ class Game:
 
         # Defensive invariant.
         if self.completed_objectives > MAX_OBJECTIVES:
-            raise RuntimeError(
-                "Weboku objective count exceeded 27."
-            )
+            raise RuntimeError("Weboku objective count exceeded 27.")
 
     # ------------------------------------------------------------------
     # Objective locking
@@ -719,9 +708,7 @@ class Game:
                 "lock_ring",
                 "lock_row",
             ),
-            "column": (
-                "lock_column",
-            ),
+            "column": ("lock_column",),
             "region": (
                 "lock_region",
                 "lock_window",
@@ -785,10 +772,12 @@ class Game:
         self,
         count: int,
     ) -> None:
-        """Award objective completion points."""
+        """Award objective points and update the marriage threshold."""
 
         if count <= 0:
             return
+
+        previous_marriage_points = self.state.marriage_objective_points
 
         if self.scoring is not None:
             method = getattr(
@@ -802,13 +791,23 @@ class Game:
 
                 if isinstance(result, int):
                     self.state.score += result
+            else:
+                self.state.score += OBJECTIVE_COMPLETION_POINTS * count
+        else:
+            self.state.score += OBJECTIVE_COMPLETION_POINTS * count
 
-                return
+        # Marriage eligibility uses ONLY objective-completion points.
+        self.state.marriage_objective_points = min(
+            MARRIAGE_THRESHOLD_POINTS,
+            previous_marriage_points + (OBJECTIVE_COMPLETION_POINTS * count),
+        )
 
-        # Objective score is deliberately isolated so it can be changed
-        # centrally when the Scoring module is integrated.
-        objective_points = 100
-        self.state.score += objective_points * count
+        # Alert exactly once when the threshold is first reached.
+        if (
+            previous_marriage_points < MARRIAGE_THRESHOLD_POINTS
+            and self.state.marriage_objective_points >= MARRIAGE_THRESHOLD_POINTS
+        ):
+            self._add_event("MARRIAGE THRESHOLD: ACHIEVED")
 
     # ------------------------------------------------------------------
     # Automatic climber movement
@@ -818,6 +817,8 @@ class Game:
         self,
         new_rings: list[int],
         new_columns: list[int],
+        last_played_floor: Optional[int] = None,
+        last_played_column: Optional[int] = None,
     ) -> bool:
         """
         Process deterministic automatic climber movement.
@@ -875,9 +876,7 @@ class Game:
                     active_column,
                 )
 
-                self._add_event(
-                    f"Climber moved to R{new_ring}C{active_column}."
-                )
+                self._add_event(f"Climber moved to R{new_ring}C{active_column}.")
 
         # --------------------------------------------------------------
         # 3. Column movement.
@@ -904,24 +903,40 @@ class Game:
                     new_column,
                 )
 
-                self._add_event(
-                    f"Climber moved to R{current_ring}C{new_column}."
-                )
+                self._add_event(f"Climber moved to R{current_ring}C{new_column}.")
 
         # Once every one of the 27 objectives is genuinely complete,
         # the automatic climb finishes at the roof.  Keep GameState and
         # the external Climber module synchronized so the engine reports
         # the same final position used by the victory check and demo.
+        if (
+            moved
+            and last_played_floor is not None
+            and last_played_column is not None
+            and self._is_junction(last_played_floor, last_played_column)
+        ):
+            self._update_climber_position(
+                last_played_floor,
+                last_played_column,
+            )
+            self._add_event(
+                f"Climber reached junction R{last_played_floor}C{last_played_column}."
+            )
+
         if self.completed_objectives == 27:
             if self.state.current_position != (1, 1):
                 self._update_climber_position(1, 1)
                 moved = True
 
-            self._add_event(
-                "Climber reached the roof at R1C1."
-            )
+            self._add_event("Climber reached the roof at R1C1.")
 
         return moved
+
+    @staticmethod
+    def _is_junction(floor: int, column: int) -> bool:
+        """Return whether a 1-based cell is a Weboku window junction."""
+        return floor in (3, 6, 9) and column in (3, 6, 9)
+
     def _current_ring(self) -> Optional[int]:
         """Return the current ring from the climber position."""
 
@@ -1025,16 +1040,12 @@ class Game:
             self.state.princess_life += life_restored
             extras -= life_restored
 
-            self._add_event(
-                f"Princess recovered {life_restored} life."
-            )
+            self._add_event(f"Princess recovered {life_restored} life.")
 
         if extras:
             self.state.rescue_credits += extras
 
-            self._add_event(
-                f"Earned {extras} rescue credit(s)."
-            )
+            self._add_event(f"Earned {extras} rescue credit(s).")
 
     # ------------------------------------------------------------------
     # Timer
@@ -1059,6 +1070,7 @@ class Game:
 
             if callable(method):
                 method()
+                self._start_timer_if_available()
                 return
 
     def _start_timer_if_available(self) -> None:
@@ -1079,6 +1091,15 @@ class Game:
                 method()
                 return
 
+    def _timer_is_expired(self) -> bool:
+        """Return whether the active timer window has expired."""
+        if self.timer is None:
+            return False
+        expired = getattr(self.timer, "expired", False)
+        if callable(expired):
+            expired = expired()
+        return bool(expired)
+
     def handle_timeout(self) -> bool:
         """
         Process a timer timeout.
@@ -1097,18 +1118,14 @@ class Game:
         if self.state.rescue_credits > 0:
             self.state.rescue_credits -= 1
 
-            self._add_event(
-                "Timeout protected by a rescue credit."
-            )
+            self._add_event("Timeout protected by a rescue credit.")
         else:
             self.state.princess_life = max(
                 0,
                 self.state.princess_life - 1,
             )
 
-            self._add_event(
-                "Timeout! Princess lost 1 life."
-            )
+            self._add_event("Timeout! Princess lost 1 life.")
 
         self._check_princess_life()
 
@@ -1134,6 +1151,8 @@ class Game:
 
             if callable(method):
                 method()
+                if self.state.game_status == GAME_STATUS_PLAYING:
+                    self._start_timer_if_available()
                 return
 
     # ------------------------------------------------------------------
@@ -1153,9 +1172,7 @@ class Game:
 
             self._stop_timer()
 
-            self._add_event(
-                "Game over: the princess has lost all life."
-            )
+            self._add_event("Game over: the princess has lost all life.")
 
     # ------------------------------------------------------------------
     # Victory
@@ -1185,13 +1202,9 @@ class Game:
 
         self._stop_timer()
 
-        self._add_event(
-            "VICTORY! The young man reached the princess."
-        )
+        self._add_event("VICTORY! The young man reached the princess.")
 
-        self._add_event(
-            "MARRIAGE COMPLETE."
-        )
+        self._add_event("MARRIAGE COMPLETE.")
 
         return True
 
@@ -1257,15 +1270,12 @@ class Game:
 
         return {
             "score": self.state.score,
-            "completed_rings": sorted(
-                self.state.completed_rings
-            ),
-            "completed_columns": sorted(
-                self.state.completed_columns
-            ),
-            "completed_regions": sorted(
-                self.state.completed_regions
-            ),
+            "marriage_objective_points": self.state.marriage_objective_points,
+            "marriage_threshold": MARRIAGE_THRESHOLD_POINTS,
+            "marriage_threshold_achieved": self.marriage_threshold_achieved,
+            "completed_rings": sorted(self.state.completed_rings),
+            "completed_columns": sorted(self.state.completed_columns),
+            "completed_regions": sorted(self.state.completed_regions),
             "completed_objectives": self.completed_objectives,
             "max_objectives": MAX_OBJECTIVES,
             "princess_life": self.state.princess_life,

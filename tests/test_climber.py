@@ -9,6 +9,8 @@ def test_climber_starts_at_base():
     assert climber.at_base is True
     assert climber.at_roof is False
     assert climber.position is None
+
+
 def test_climber_moves_to_position():
     climber = Climber()
 
@@ -18,6 +20,8 @@ def test_climber_moves_to_position():
     assert climber.current_column == 2
     assert climber.position == (5, 2)
     assert climber.at_base is False
+
+
 def test_climber_records_movement_history():
     climber = Climber()
 
@@ -42,6 +46,8 @@ def test_climber_records_movement_history():
             "to": (4, 2),
         },
     ]
+
+
 def test_climber_rejects_invalid_ring():
     climber = Climber()
 
@@ -60,6 +66,8 @@ def test_climber_rejects_invalid_column():
         assert False
     except ValueError:
         assert True
+
+
 def test_climber_reset():
     climber = Climber()
 
@@ -74,6 +82,8 @@ def test_climber_reset():
     assert climber.at_roof is False
     assert climber.position is None
     assert climber.movement_history == []
+
+
 def test_climber_reaches_princess():
     climber = Climber()
 

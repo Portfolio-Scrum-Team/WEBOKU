@@ -10,7 +10,6 @@ from .scoring import Scoring
 from .sudoku import SudokuEngine
 from .timer import GameTimer
 
-
 DEMO_SOLUTION = (
     (5, 3, 4, 6, 7, 8, 9, 1, 2),
     (6, 7, 2, 1, 9, 5, 3, 4, 8),
@@ -66,13 +65,9 @@ def _print_state(
         f"Columns    : {len(game.completed_columns)}/9    "
         f"Windows    : {len(game.completed_regions)}/9"
     )
+    output(f"Score      : {game.score}    " f"Princess   : {game.princess_life}/27")
     output(
-        f"Score      : {game.score}    "
-        f"Princess   : {game.princess_life}/27"
-    )
-    output(
-        f"Rescue     : {game.rescue_credits}    "
-        f"Timeouts   : {game.failed_timeouts}"
+        f"Rescue     : {game.rescue_credits}    " f"Timeouts   : {game.failed_timeouts}"
     )
     output(f"Position   : {game.current_position}")
     output(f"Status     : {game.game_status}")
@@ -85,10 +80,7 @@ def _show_partial_board(
     """Demonstrate genuine Sudoku moves through the real Game engine."""
 
     output("[PARTIAL SUDOKU]")
-    output(
-        "Entering several valid Sudoku values through "
-        "Game.process_move()."
-    )
+    output("Entering several valid Sudoku values through " "Game.process_move().")
 
     moves = (
         (1, 1),
@@ -103,12 +95,8 @@ def _show_partial_board(
         symbol = game.value_to_symbol(value)
         result = game.process_move(ring, column, symbol)
 
-        output(
-            f"  R{ring}C{column} = {symbol} "
-            f"(value {value}) -> "
-            f"{'VALID' if 
-result.success else 'REJECTED'}"
-        )
+        output(f"  R{ring}C{column} = {symbol} " f"(value {value}) -> " f"{'VALID' if 
+result.success else 'REJECTED'}")
 
 
 def _demonstrate_timeout(
@@ -124,20 +112,13 @@ def _demonstrate_timeout(
     result = game.handle_timeout()
 
     output("Forcing one timer timeout through the real Game engine.")
-    output(
-        f"  Timeout result: "
-        f"{'TIMEOUT' if result else 'REJECTED'}"
-    )
+    output(f"  Timeout result: " f"{'TIMEOUT' if result else 'REJECTED'}")
     output(
         f"  Timeout applied -> Princess life "
         f"{before}/{before} -> {game.princess_life}/{before}"
     )
-    output(
-        f"  Failed timeouts recorded: {game.failed_timeouts}"
-    )
-    output(
-        f"  Rescue credits: {game.rescue_credits}"
-    )
+    output(f"  Failed timeouts recorded: {game.failed_timeouts}")
+    output(f"  Rescue credits: {game.rescue_credits}")
 
 
 def _prepare_final_fixture(
@@ -164,9 +145,7 @@ def _prepare_final_fixture(
 
     output("")
     output("[FINAL SUDOKU FIXTURE]")
-    output(
-        "Loaded a deterministic valid Sudoku with exactly one cell empty."
-    )
+    output("Loaded a deterministic valid Sudoku with exactly one cell empty.")
     output("Final editable cell: R1C1")
 
 
@@ -185,31 +164,15 @@ def _complete_final_objective(
 
     result = game.process_move(1, 1, symbol)
 
-    output(
-        f"  Move result: "
-        f"{'VALID' if result.success else 'REJECTED'}"
-    )
-    output(
-        f"  New objectives: {result.new_objectives}"
-    )
-    output(
-        f"  Score gained: {result.score_gained}"
-    )
-    output(
-        f"  Automatic movement: "
-        f"{'YES' if result.movement_occurred else 'NO'}"
-    )
-    output(
-        f"  Final objectives: {game.completed_objectives}/27"
-    )
-    output(
-        f"  Rescue credits: {game.rescue_credits}"
-    )
+    output(f"  Move result: " f"{'VALID' if result.success else 'REJECTED'}")
+    output(f"  New objectives: {result.new_objectives}")
+    output(f"  Score gained: {result.score_gained}")
+    output(f"  Automatic movement: " f"{'YES' if result.movement_occurred else 'NO'}")
+    output(f"  Final objectives: {game.completed_objectives}/27")
+    output(f"  Rescue credits: {game.rescue_credits}")
 
     if result.success:
-        output(
-            "  R1C1 is now locked by the completed objectives."
-        )
+        output("  R1C1 is now locked by the completed objectives.")
 
 
 def run_demo(output: Callable[[str], None] = print) -> Game:
@@ -263,9 +226,7 @@ def run_demo(output: Callable[[str], None] = print) -> Game:
     elif game.is_game_over():
         output("GAME OVER")
     else:
-        output(
-            "DEMO INCOMPLETE — ENGINE STATE DID NOT REACH VICTORY"
-        )
+        output("DEMO INCOMPLETE — ENGINE STATE DID NOT REACH VICTORY")
 
     output("")
     output("=" * 64)

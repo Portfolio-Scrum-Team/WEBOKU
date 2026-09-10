@@ -57,7 +57,9 @@ def test_renderer_shows_nine_windows_and_board_structure():
 
 def test_renderer_shows_current_position_and_climber():
     renderer = Renderer()
-    text = renderer.render_status("CURRENT POSITION: R5C5\nFLOOR: 5\nCOLUMN: 5\nCLIMBER: 🧗")
+    text = renderer.render_status(
+        "CURRENT POSITION: R5C5\nFLOOR: 5\nCOLUMN: 5\nCLIMBER: 🧗"
+    )
     assert "CURRENT POSITION" in text
     assert "R5C5" in text
     assert "CLIMBER" in text
@@ -91,5 +93,7 @@ def test_renderer_does_not_mutate_game_state():
     game = DummyGame()
     renderer = Renderer()
     original = game.score, game.timer, game.position, game.status
-    renderer.render_status(f"SCORE: {game.score}\nTIME: {game.timer}\nPOSITION: {game.position}\nSTATUS: {game.status}")
+    renderer.render_status(
+        f"SCORE: {game.score}\nTIME: {game.timer}\nPOSITION: {game.position}\nSTATUS: {game.status}"
+    )
     assert (game.score, game.timer, game.position, game.status) == original

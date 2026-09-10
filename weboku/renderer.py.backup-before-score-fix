@@ -853,7 +853,7 @@ class Renderer:
             )
 
         # Game.score is the authoritative total score used by the game loop.
-        # Fall back to the scoring object only when Game does not expose it.
+        # Only fall back to the scoring object when Game does not expose it.
         game_score = getattr(game, "score", None)
         if game_score is not None:
             score = game_score
@@ -876,21 +876,6 @@ class Renderer:
         )
         rescue_credits = getattr(game, "rescue_credits", 0)
         failed_timeouts = getattr(game, "failed_timeouts", 0)
-
-        timer = getattr(game, "timer", None)
-        if timer is None:
-            timer_text = "DISABLED"
-        else:
-            remaining = getattr(timer, "remaining", None)
-            if callable(remaining):
-                remaining = remaining()
-            try:
-                remaining_seconds = max(0, int(float(remaining)))
-                timer_text = (
-                    f"{remaining_seconds // 60:02d}:" f"{remaining_seconds % 60:02d}"
-                )
-            except (TypeError, ValueError):
-                timer_text = "N/A"
 
         position = getattr(game, "current_position", None)
 
@@ -936,10 +921,9 @@ class Renderer:
             status_line("WINDOWS", f"{len(regions)}/9"),
             status_line("SCORE", score),
             status_line("MARRIAGE THRESHOLD", marriage_threshold),
-            status_line("TIME", timer_text),
             status_line("PRINCESS", f"{princess_life}/27"),
             status_line("RESCUE CREDITS", rescue_credits),
-            status_line("TIMEOUTS", failed_timeouts),
+            status_line("FAILED TIMEOUTS", failed_timeouts),
             status_line("CURRENT POSITION", position_text),
             "╚══════════════════════════════════════════════╝",
         ]

@@ -112,16 +112,12 @@ def test_ask_sends_correct_request():
 
     request = mock_urlopen.call_args.args[0]
 
-    assert request.full_url == (
-        "https://openrouter.ai/api/v1/chat/completions"
-    )
+    assert request.full_url == ("https://openrouter.ai/api/v1/chat/completions")
 
     assert request.get_header("Authorization") == "Bearer test-key"
     assert request.get_header("Content-type") == "application/json"
 
-    sent_payload = json.loads(
-        request.data.decode("utf-8")
-    )
+    sent_payload = json.loads(request.data.decode("utf-8"))
 
     assert sent_payload["model"] == "openrouter/free"
     assert sent_payload["stream"] is False
@@ -179,17 +175,13 @@ def test_explain_uses_weboku_system_prompt():
         "weboku.openrouter_engine.urllib.request.urlopen",
         return_value=make_response(payload),
     ) as mock_urlopen:
-        result = engine.explain(
-            "Explain R5C5."
-        )
+        result = engine.explain("Explain R5C5.")
 
     assert result == "Check the center window."
 
     request = mock_urlopen.call_args.args[0]
 
-    sent_payload = json.loads(
-        request.data.decode("utf-8")
-    )
+    sent_payload = json.loads(request.data.decode("utf-8"))
 
     system_message = sent_payload["messages"][0]
 
@@ -235,13 +227,7 @@ def test_invalid_json_response_raises_error():
 
 
 def test_missing_assistant_content_raises_error():
-    payload = {
-        "choices": [
-            {
-                "message": {}
-            }
-        ]
-    }
+    payload = {"choices": [{"message": {}}]}
 
     engine = OpenRouterEngine(api_key="test-key")
 
@@ -279,9 +265,7 @@ def test_http_error_is_converted_to_openrouter_error():
 
 
 def test_url_error_is_converted_to_openrouter_error():
-    error = urllib.error.URLError(
-        "Connection failed"
-    )
+    error = urllib.error.URLError("Connection failed")
 
     engine = OpenRouterEngine(api_key="test-key")
 
