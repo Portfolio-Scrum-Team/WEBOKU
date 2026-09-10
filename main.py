@@ -280,7 +280,7 @@ def create_game():
     # Core domain objects
     # ------------------------------------------------------------
 
-    board = Board()
+    board = Board.default_puzzle()
 
     sudoku_engine = SudokuEngine(board)
 
