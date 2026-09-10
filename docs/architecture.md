@@ -1,645 +1,233 @@
 # Weboku Architecture
 
-## 1. Architecture Goal
+## 1. Project Overview
 
-Weboku is a CLI-only Python application.
+Weboku is a Python command-line Sudoku adventure game.
 
-The architecture separates:
+The game combines a deterministic Sudoku engine with an automatic climbing
+system, scoring, objectives, timer mechanics, princess life, rescue credits,
+persistence, and optional AI narration.
 
-- User interaction
-- Application/game flow
-- Domain/game logic
-- Persistence
-- AI assistance
+The game is played entirely through the terminal.
 
-The goal is to keep business rules independent from the CLI and
-external services.
+The player does not manually control the young man's movement.
 
----
+The player solves Sudoku cells, and the game engine automatically determines
+when and where the young man climbs.
 
-## 2. Layered Architecture
+The main game flow is:
 
-The main architecture is:
+SOLVE → UNLOCK → CLIMB → REACH → MARRY
 
-    CLI
-      ↓
-    Application / Game Service
-      ↓
-    Domain
-      ↓
-    Repository / External Services
+The young man begins at the base of the building.
 
-The main flow is:
+The princess is positioned above the flat roof.
 
-    Player
-      ↓
-    CLI
-      ↓
-    Game
-      ↓
-    Sudoku / Spider / Scoring / Timer
-      ↓
-    Save Repository / AI Service
+The player must complete the required Sudoku objectives, reach the princess,
+and satisfy the final victory requirements.
 
 ---
 
-## 3. CLI Layer
+## 2. Architectural Style
+
+Weboku follows a layered architecture:
+
+CLI → Game/Application → Domain → Persistence/API/External
+
+The architecture separates presentation, game coordination, domain rules,
+persistence, and external services.
+
+The Python game engine is the source of truth.
+
+The CLI displays game information and accepts player commands.
+
+The domain layer contains the actual game rules.
+
+The persistence layer stores and loads game state.
+
+The AI layer provides optional narration and dialogue.
+
+The AI must never become the authority for game state.
+
+---
+
+## 3. Architecture Layers
+
+Weboku is divided into the following major layers:
+
+1. CLI / Presentation
+2. Application / Game
+3. Domain
+4. Persistence
+5. External / AI services
+
+The dependency direction is:
+
+CLI
+↓
+Game/Application
+↓
+Domain
+↓
+Persistence / External
+
+---
+
+## 4. CLI / Presentation Layer
+
+The CLI layer is responsible for interaction with the player.
+
+Main modules:
+
+- `main.py`
+- `weboku/cli.py`
+- `weboku/renderer.py`
 
 The CLI is responsible for:
 
-- Displaying menus.
-- Reading user input.
-- Validating basic input format.
-- Displaying the board.
-- Displaying status information.
-- Displaying errors.
-- Displaying game events.
-- Displaying help.
-- Starting demo mode.
+- displaying the game
+- receiving commands
+- parsing command input
+- displaying errors
+- displaying status
+- displaying help
+- requesting actions from the Game layer
 
-The CLI must NOT contain core game rules.
+The CLI must not contain:
 
-The CLI should call application/game services instead of directly
-changing domain state.
+- Sudoku validation rules
+- objective completion rules
+- scoring calculations
+- timer rules
+- princess life rules
+- rescue-credit rules
+- climber movement rules
+- victory logic
+- game-over logic
 
-Primary component:
-
-    cli.py
-
-Supporting presentation component:
-
-    renderer.py
+The CLI delegates these responsibilities to the Game/Application layer.
 
 ---
 
-## 4. Application / Game Layer
+## 5. Application / Game Layer
 
-The game layer coordinates the overall gameplay.
+The main application coordinator is:
 
-Primary component:
+`weboku/game.py`
 
-    game.py
+The Game class coordinates the major game systems.
 
 Responsibilities include:
 
-- Starting a game.
-- Processing player actions.
-- Coordinating Sudoku validation.
-- Detecting completed structures.
-- Triggering spider movement.
-- Updating score.
-- Updating health.
-- Updating timer state.
-- Checking win conditions.
-- Checking lose conditions.
-- Coordinating level progression.
-- Coordinating demo mode.
+- starting a game
+- processing Sudoku moves
+- communicating with the Sudoku engine
+- processing newly completed objectives
+- updating game state
+- coordinating scoring
+- coordinating timer behavior
+- coordinating princess life
+- coordinating rescue credits
+- coordinating automatic climber movement
+- checking victory
+- checking game over
+- coordinating save/load
+- providing state to the CLI
+- coordinating the overall game loop
 
-The game layer coordinates domain objects.
-
-It should not contain CLI rendering code.
-
----
-
-## 5. Domain Layer
-
-The domain contains the actual Weboku rules.
-
-Main components:
-
-    cell.py
-    board.py
-    sudoku.py
-    spider.py
-    player.py
-    scoring.py
-    timer.py
-    levels.py
-
-These components represent the game's state and rules.
+The Game class coordinates domain objects but should not duplicate their
+internal responsibilities.
 
 ---
 
-## 6. Sudoku Domain
+## 6. Domain Layer
 
-The Sudoku subsystem owns:
+The domain layer contains the core Weboku game concepts.
 
-    Cell
-    Board
-    SudokuEngine
+Main modules:
 
-Responsibilities:
+- `board.py`
+- `cell.py`
+- `sudoku.py`
+- `climber.py`
+- `scoring.py`
+- `timer.py`
+- `levels.py`
+- `player.py`
 
-- 81-cell representation.
-- Ring management.
-- Column management.
-- Region management.
-- Move validation.
-- Candidate calculation.
-- Completion detection.
-- Sudoku solving.
+These modules contain deterministic game rules and data structures.
 
-The Sudoku subsystem is the source of truth for Sudoku validity.
+The domain layer must not depend on the CLI renderer.
 
-It must not directly control the spider.
+The domain layer must not print terminal dashboards.
 
----
-
-## 7. Spider Domain
-
-The Spider component owns:
-
-    Spider
-
-Responsibilities:
-
-- Spider position.
-- Ring position.
-- Column position.
-- Health.
-- Movement state.
-
-Movement rules are coordinated with the game engine.
-
-The spider does not modify Sudoku cells.
+The domain layer must not require terminal input.
 
 ---
 
-## 8. Player Domain
+## 7. Board Architecture
 
-The Player component represents the human player.
+Weboku represents the Sudoku puzzle as a 9 × 9 board.
 
-Possible state includes:
+The board contains:
 
-- Player name.
-- Score.
-- Current level.
-- Progress.
+- 9 floors/rings
+- 9 columns
+- 81 Sudoku cells
+- 9 windows/regions
 
-The Player object does not directly control the Sudoku board.
+The internal board representation remains a standard 9 × 9 structure.
 
----
+Each cell can be identified using:
 
-## 9. Scoring Domain
+`R1C1` through `R9C9`
 
-The scoring subsystem calculates rewards.
+The CLI presents floor/ring and column numbers using 1–9.
 
-It handles:
-
-- Ring completion rewards.
-- Column completion rewards.
-- Region completion rewards.
-- Forward movement rewards.
-- Sideways movement rewards.
-- Backward movement rewards.
-- Other configured bonuses.
-
-The scoring system should not render output.
+Internally, Python may use zero-based indexes.
 
 ---
 
-## 10. Timer Domain
+## 8. Building Structure
 
-The timer subsystem handles:
+The Sudoku board is represented visually as a tall building.
 
-- Countdown state.
-- Time remaining.
-- Expiration detection.
-- Level-specific time limits.
+The building has:
 
-The timer does not decide what the player sees.
+- 9 floors/rings
+- 9 columns
+- 81 cells
+- a flat roof
+- a princess above the roof
 
-The CLI displays timer information.
+The young man begins at the base outside Floor 9.
 
----
+The building is not a GUI.
 
-## 11. Level Configuration
-
-The level subsystem stores configurable difficulty information.
-
-Possible level settings include:
-
-- Sudoku puzzle.
-- Initial clues.
-- Time limit.
-- Health configuration.
-- Scoring configuration.
-- Difficulty settings.
-
-Different levels should be data-driven where practical.
+The structure is rendered in the terminal using text characters.
 
 ---
 
-## 12. Persistence Layer
+## 9. Sudoku Windows
 
-Persistence is handled by:
+There are exactly 9 Sudoku windows.
 
-    save_load.py
+Each window contains exactly 9 cells.
 
-The persistence layer is responsible for:
+Each window represents a standard 3 × 3 Sudoku region.
 
-- Saving game state.
-- Loading game state.
-- JSON serialization.
-- JSON deserialization.
-- Validating loaded state.
+The window mapping is:
 
-The save system should not contain game rules.
+```text
+Window 1: R1–R3, C1–C3
+Window 2: R1–R3, C4–C6
+Window 3: R1–R3, C7–C9
 
-The game engine remains responsible for interpreting loaded state.
+Window 4: R4–R6, C1–C3
+Window 5: R4–R6, C4–C6
+Window 6: R4–R6, C7–C9
 
----
-
-## 13. AI Service
-
-AI assistance is handled by:
-
-    ai_master.py
-
-The AI service may communicate with Ollama.
-
-The AI can provide:
-
-- Sudoku hints.
-- Warnings.
-- Explanations.
-- Gameplay guidance.
-
-The AI must NOT:
-
-- Validate Sudoku moves.
-- Modify Sudoku state.
-- Modify spider state.
-- Modify health.
-- Modify score.
-- Decide whether the player wins.
-
-Python game logic is always authoritative.
-
----
-
-## 14. Demo System
-
-The demo system provides:
-
-    python main.py --demo
-
-The demo should use:
-
-    demo.py
-
-The demo provides deterministic game data and a predetermined
-successful sequence.
-
-The demo must use the same game engine and domain rules as normal
-gameplay.
-
-The demo must not simply print a fake victory screen.
-
----
-
-## 15. Main Entry Point
-
-The application starts through:
-
-    main.py
-
-Responsibilities:
-
-- Parse command-line arguments.
-- Start normal CLI mode.
-- Start demo mode.
-- Display help.
-- Pass control to the appropriate application service.
-
-`main.py` should remain small.
-
-It should not contain the actual Sudoku or spider logic.
-
----
-
-## 16. Component Ownership
-
-### Richie — Game Architect / Lead
-
-Primary ownership:
-
-    main.py
-    game.py
-
-Responsible for:
-
-- Game rules.
-- Overall game flow.
-- Sudoku interaction design.
-- CLI behavior specification.
-- Game-state coordination.
-- Integration.
-- Demo integration.
-- Final presentation.
-
----
-
-### Sharlmon — Sudoku Engine
-
-Primary ownership:
-
-    cell.py
-    board.py
-    sudoku.py
-
-Responsible for:
-
-- Cell implementation.
-- Board implementation.
-- Region mapping.
-- Sudoku validation.
-- Candidate calculation.
-- Sudoku solver.
-- Completion detection.
-- Sudoku tests.
-
----
-
-### Tracy — Spider & Game Mechanics
-
-Primary ownership:
-
-    spider.py
-    scoring.py
-    timer.py
-    levels.py
-
-Responsible for:
-
-- Spider.
-- Forward movement.
-- Backward movement.
-- Sideways movement.
-- Active column.
-- Health.
-- Fruit energy.
-- Scoring.
-- Timer.
-- Level configuration.
-
----
-
-### Nicole — CLI & Player Experience
-
-Primary ownership:
-
-    cli.py
-    renderer.py
-    player.py
-
-Responsible for:
-
-- CLI framework.
-- Menus.
-- Commands.
-- Input handling.
-- Board rendering.
-- Completion visualization.
-- Spider visualization.
-- HUD.
-- Progress bars.
-- Event messages.
-- Help screen.
-- Player state.
-
----
-
-### Alvin — AI, Persistence & Testing
-
-Primary ownership:
-
-    ai_master.py
-    save_load.py
-    tests/
-
-Responsible for:
-
-- JSON persistence.
-- Ollama integration.
-- AI hints.
-- AI warnings.
-- AI safety boundary.
-- Persistence tests.
-- AI tests.
-- Integration testing coordination.
-- Development setup documentation.
-
----
-
-## 17. Communication Between Components
-
-The components communicate through Python objects and clearly defined
-interfaces.
-
-Example player move:
-
-    CLI
-      ↓
-    Game
-      ↓
-    SudokuEngine.validate_move()
-      ↓
-    SudokuEngine.set_value()
-      ↓
-    Game checks completion
-      ↓
-    Spider / Scoring updated
-      ↓
-    Renderer displays result
-
----
-
-## 18. Sudoku Completion Flow
-
-Example:
-
-    Player enters value
-          ↓
-    CLI receives input
-          ↓
-    Game receives action
-          ↓
-    SudokuEngine validates move
-          ↓
-    Board is updated
-          ↓
-    Game checks completed structures
-          ↓
-    Ring/Column/Region event detected
-          ↓
-    Game applies gameplay effect
-          ↓
-    Spider / Score / Health updated
-          ↓
-    CLI displays event
-
----
-
-## 19. Spider Movement Flow
-
-Example:
-
-    Ring completed
-          ↓
-    Game determines ring position
-          ↓
-    Compare with spider position
-          ↓
-    Forward / Backward / No movement
-          ↓
-    Active column used
-          ↓
-    Spider position updated
-          ↓
-    Health updated
-          ↓
-    Score updated
-          ↓
-    CLI displays movement
-
-For a newly completed column:
-
-    Column completed
-          ↓
-    New column becomes active
-          ↓
-    Spider moves sideways
-          ↓
-    Health / score updated
-          ↓
-    CLI displays event
-
----
-
-## 20. AI Hint Flow
-
-The AI hint flow is:
-
-    Player requests hint
-          ↓
-    CLI
-          ↓
-    Game
-          ↓
-    SudokuEngine calculates candidates
-          ↓
-    AI receives trusted game information
-          ↓
-    Ollama generates explanation
-          ↓
-    CLI displays explanation
-
-The AI does not determine the candidates itself.
-
-The Sudoku engine supplies the authoritative information.
-
----
-
-## 21. Save / Load Flow
-
-Save:
-
-    Player requests save
-          ↓
-    CLI
-          ↓
-    Game state
-          ↓
-    SaveLoad
-          ↓
-    JSON file
-
-Load:
-
-    Player requests load
-          ↓
-    CLI
-          ↓
-    SaveLoad
-          ↓
-    JSON validation
-          ↓
-    Game state restored
-          ↓
-    Game continues
-
----
-
-## 22. Dependency Rules
-
-The following rules should be maintained:
-
-1. CLI depends on application/game services.
-2. Game coordinates domain components.
-3. Domain components should not depend on CLI rendering.
-4. Sudoku must not depend on Spider.
-5. Spider must not depend on CLI.
-6. AI must not be the source of truth.
-7. Persistence must not contain gameplay rules.
-8. `main.py` should remain a thin entry point.
-
----
-
-## 23. Testing Strategy
-
-Testing should occur at multiple levels.
-
-### Unit tests
-
-Test individual classes:
-
-- Cell
-- Board
-- SudokuEngine
-- Spider
-- Scoring
-- Timer
-- Player
-
-### Integration tests
-
-Test interactions between:
-
-- Game + Sudoku
-- Game + Spider
-- Game + Scoring
-- Game + Timer
-- Game + Persistence
-
-### CLI tests
-
-Test:
-
-- Commands.
-- Input validation.
-- Help.
-- Menu behavior.
-- Demo mode.
-
-### Demo test
-
-The demo should verify that a complete deterministic game reaches:
-
-    WON
-
-without bypassing the game engine.
-
----
-
-## 24. Architectural Principle
-
-The central principle of Weboku is:
-
-    CLI displays the game.
-    Game coordinates the game.
-    Domain implements the rules.
-    Repository stores the state.
-    AI explains the game.
-
-The deterministic Python engine remains the source of truth.
+Window 7: R7–R9, C1–C3
+Window 8: R7–R9, C4–C6
+Window 9: R7–R9, C7–C9
+```
